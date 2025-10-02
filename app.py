@@ -12,7 +12,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = 'reel-cinemas-secret-key-change-in-production'
-CORS(app, supports_credentials=True, origins=['*'])
+CORS(app, supports_credentials=True, origins=['https://reel-technical-ops.netlify.app/'])
 
 # Configuration
 CSV_FILE = os.path.join('data', 'operations.csv')
