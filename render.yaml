@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: reel-technical-operation
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
