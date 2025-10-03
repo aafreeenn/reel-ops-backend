@@ -7,6 +7,7 @@ import csv
 import io
 import os
 from functools import wraps
+from flask_cors import CORS
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -21,15 +22,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # CORS Configuration
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'https://reel-technical-ops.netlify.app')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
-
-CORS(app, supports_credentials=True)
+CORS(app,
+     origins="https://reel-technical-ops.netlify.app",
+     supports_credentials=True,
+     methods=["GET", "POST", "OPTIONS"],
+     allow_headers=["Content-Type"])
 
 # Configuration
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')
