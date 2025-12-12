@@ -17,13 +17,13 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'reel-cinemas-secret-key-change-in-production')
 
 # Database Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///operations.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # CORS Configuration
 CORS(app,
-     origins="https://reel-technical-ops.netlify.app",
+     resources={r"/*": {"origins": ["http://localhost:3000", "https://reel-technical-ops.netlify.app"]}},
      supports_credentials=True,
      methods=["GET", "POST", "OPTIONS"],
      allow_headers=["Content-Type"])
@@ -90,13 +90,25 @@ def login():
         session_id = os.urandom(24).hex()
         sessions[session_id] = {'user_type': 'Admin'}
         response = jsonify({'success': True, 'userType': 'Admin'})
-        response.set_cookie('session_id', session_id, httponly=True, samesite='None', secure=True)
+        response.set_cookie(
+    'session_id',
+    session_id,
+    httponly=True,
+    samesite='Lax',
+    secure=False
+) 
         return response
     elif user_type == 'Technician' and password == TECHNICIAN_PASSWORD:
         session_id = os.urandom(24).hex()
         sessions[session_id] = {'user_type': 'Technician'}
         response = jsonify({'success': True, 'userType': 'Technician'})
-        response.set_cookie('session_id', session_id, httponly=True, samesite='None', secure=True)
+        response.set_cookie(
+    'session_id',
+    session_id,
+    httponly=True,
+    samesite='Lax',
+    secure=False
+) 
         return response
     else:
         return jsonify({'success': False, 'error': 'Invalid password'}), 401
@@ -204,4 +216,4 @@ def delete_logs():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5001)
