@@ -7,36 +7,35 @@ import csv
 import io
 import os
 from functools import wraps
-from flask_cors import CORS
-
-CORS(app, supports_credentials=True, origins=[
-    "http://localhost:3000",
-    "https://reel-technical-ops.netlify.app/"
-])
 
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
 
+# Create Flask app FIRST
 app = Flask(__name__)
+
+# App config
+app.secret_key = os.getenv('SECRET_KEY', 'reel-cinemas-secret-key-change-in-production')
 app.config.update(
     SESSION_COOKIE_SAMESITE="None",
     SESSION_COOKIE_SECURE=True
 )
 
-app.secret_key = os.getenv('SECRET_KEY', 'reel-cinemas-secret-key-change-in-production')
+# CORS 
+CORS(
+    app,
+    supports_credentials=True,
+    origins=[
+        "http://localhost:3000",
+        "https://reel-technical-ops.netlify.app"
+    ]
+)
 
 # Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
-
-# CORS Configuration
-CORS(app,
-     resources={r"/*": {"origins": ["http://localhost:3000", "https://reel-technical-ops.netlify.app"]}},
-     supports_credentials=True,
-     methods=["GET", "POST", "OPTIONS"],
-     allow_headers=["Content-Type"])
 
 # Configuration
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')
@@ -48,7 +47,7 @@ IST = pytz.timezone('Asia/Kolkata')
 # Database Model
 class Operation(db.Model):
     __tablename__ = 'operations'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.String(20), nullable=False)
     time = db.Column(db.String(20), nullable=False)
@@ -57,7 +56,7 @@ class Operation(db.Model):
     button_name = db.Column(db.String(50), nullable=False)
     status = db.Column(db.String(20), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(IST))
-    
+
     def __repr__(self):
         return f'<Operation {self.id}: {self.button_name} - {self.status}>'
 
