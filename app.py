@@ -103,9 +103,9 @@ def login():
     'session_id',
     session_id,
     httponly=True,
-    samesite='Lax',
-    secure=False
-) 
+    samesite='Lax',   
+    secure=False     
+)
         return response
     elif user_type == 'Technician' and password == TECHNICIAN_PASSWORD:
         session_id = os.urandom(24).hex()
@@ -115,9 +115,9 @@ def login():
     'session_id',
     session_id,
     httponly=True,
-    samesite='Lax',
-    secure=False
-) 
+    samesite='Lax',   
+    secure=False     
+)
         return response
     else:
         return jsonify({'success': False, 'error': 'Invalid password'}), 401
@@ -223,6 +223,14 @@ def delete_logs():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/debug-session')
+def debug_session():
+    return jsonify({
+        "cookies": request.cookies,
+        "sessions": list(sessions.keys())
+    })
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)
