@@ -9,11 +9,21 @@ import os
 from functools import wraps
 from flask_cors import CORS
 
+CORS(app, supports_credentials=True, origins=[
+    "http://localhost:3000",
+    "https://reel-technical-ops.netlify.app/"
+])
+
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
+app.config.update(
+    SESSION_COOKIE_SAMESITE="None",
+    SESSION_COOKIE_SECURE=True
+)
+
 app.secret_key = os.getenv('SECRET_KEY', 'reel-cinemas-secret-key-change-in-production')
 
 # Database Configuration
