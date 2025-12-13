@@ -103,8 +103,8 @@ def login():
     'session_id',
     session_id,
     httponly=True,
-    samesite='Lax',   
-    secure=False     
+    samesite='None',
+    secure=True
 )
         return response
     elif user_type == 'Technician' and password == TECHNICIAN_PASSWORD:
@@ -115,8 +115,8 @@ def login():
     'session_id',
     session_id,
     httponly=True,
-    samesite='Lax',   
-    secure=False     
+    samesite='None',
+    secure=True
 )
         return response
     else:
