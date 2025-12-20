@@ -21,8 +21,8 @@ app.secret_key = os.getenv(
 )
 
 app.config.update(
-    SESSION_COOKIE_SAMESITE="None" if IS_PROD else "Lax",
-    SESSION_COOKIE_SECURE=IS_PROD
+    SESSION_COOKIE_SAMESITE = "None"
+    SESSION_COOKIE_SECURE = True
 )
 
 CORS(
@@ -103,9 +103,10 @@ def login():
             'session_id',
             session_id,
             httponly=True,
-            samesite="None" if IS_PROD else "Lax",
-            secure=IS_PROD
+            samesite='None',
+            secure=True
         )
+
         return response
 
     return jsonify({'success': False, 'error': 'Invalid password'}), 401
