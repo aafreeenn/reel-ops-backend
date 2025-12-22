@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
+from flask_session import Session  # New: Persistent sessions
 from datetime import datetime
 import pytz
 import csv
@@ -13,17 +14,20 @@ load_dotenv()
 
 app = Flask(__name__)
 
-IS_PROD = os.getenv("FLASK_ENV") == "production"
+# --- Configuration ---
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'reel-cinemas-fallback-key')
 
-app.secret_key = os.getenv(
-    'SECRET_KEY',
-    'reel-cinemas-secret-key-change-in-production'
-)
+# Session Configuration (Stores sessions in your DB)
+app.config['SESSION_TYPE'] = 'sqlalchemy'
+app.config['SESSION_COOKIE_SAMESITE'] = "None"
+app.config['SESSION_COOKIE_SECURE'] = True  # Required for Cross-Site (Netlify to Render)
+app.config['SESSION_PERMANENT'] = True
 
-app.config.update(
-    SESSION_COOKIE_SAMESITE = "None"
-    SESSION_COOKIE_SECURE = True
-)
+db = SQLAlchemy(app)
+app.config['SESSION_SQLALCHEMY'] = db
+Session(app) # Initialize Session extension
 
 CORS(
     app,
@@ -34,18 +38,11 @@ CORS(
     ]
 )
 
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
-
-ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')
-TECHNICIAN_PASSWORD = os.getenv('TECHNICIAN_PASSWORD')
-
 IST = pytz.timezone('Asia/Kolkata')
 
+# --- Models ---
 class Operation(db.Model):
     __tablename__ = 'operations'
-
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.String(20), nullable=False)
     time = db.Column(db.String(20), nullable=False)
@@ -58,19 +55,14 @@ class Operation(db.Model):
 with app.app_context():
     db.create_all()
 
-sessions = {}
-
-def get_session_id():
-    return (
-        request.headers.get('X-Session-ID')
-        or request.cookies.get('session_id')
-    )
+# --- Auth Decorators ---
+# We now use the built-in Flask 'session' object instead of a global dict
+from flask import session
 
 def login_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        session_id = get_session_id()
-        if not session_id or session_id not in sessions:
+        if 'user_type' not in session:
             return jsonify({'error': 'Not authenticated'}), 401
         return f(*args, **kwargs)
     return wrapper
@@ -78,56 +70,45 @@ def login_required(f):
 def admin_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        session_id = get_session_id()
-        if sessions.get(session_id, {}).get('user_type') != 'Admin':
+        if session.get('user_type') != 'Admin':
             return jsonify({'error': 'Admin access required'}), 403
         return f(*args, **kwargs)
     return wrapper
 
+# --- Routes ---
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
     user_type = data.get('userType')
     password = data.get('password')
 
-    if (
-        (user_type == 'Admin' and password == ADMIN_PASSWORD)
-        or
-        (user_type == 'Technician' and password == TECHNICIAN_PASSWORD)
-    ):
-        session_id = os.urandom(24).hex()
-        sessions[session_id] = {'user_type': user_type}
+    admin_pass = os.getenv('ADMIN_PASSWORD')
+    tech_pass = os.getenv('TECHNICIAN_PASSWORD')
 
-        response = jsonify({'success': True, 'userType': user_type})
-        response.set_cookie(
-            'session_id',
-            session_id,
-            httponly=True,
-            samesite='None',
-            secure=True
-        )
-
-        return response
+    if (user_type == 'Admin' and password == admin_pass) or \
+       (user_type == 'Technician' and password == tech_pass):
+        
+        session.clear()
+        session['user_type'] = user_type
+        session.permanent = True 
+        
+        return jsonify({'success': True, 'userType': user_type})
 
     return jsonify({'success': False, 'error': 'Invalid password'}), 401
 
 @app.route('/api/check-auth', methods=['GET'])
 def check_auth():
-    session_id = get_session_id()
-    if session_id in sessions:
+    if 'user_type' in session:
         return jsonify({
             'authenticated': True,
-            'userType': sessions[session_id]['user_type']
+            'userType': session['user_type']
         })
     return jsonify({'authenticated': False}), 401
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
-    session_id = get_session_id()
-    sessions.pop(session_id, None)
-    response = jsonify({'success': True})
-    response.set_cookie('session_id', '', expires=0)
-    return response
+    session.clear()
+    return jsonify({'success': True})
 
 @app.route('/api/save', methods=['POST'])
 @login_required
@@ -138,19 +119,16 @@ def save_operations():
     technician_name = data.get('technicianName', '')
 
     now_ist = datetime.now(IST)
-
     try:
         for button in button_states:
-            db.session.add(
-                Operation(
-                    date=now_ist.strftime('%d/%m/%Y'),
-                    time=now_ist.strftime('%H:%M:%S'),
-                    timeslot=timeslot,
-                    technician_name=technician_name,
-                    button_name=button['name'],
-                    status=button['status']
-                )
-            )
+            db.session.add(Operation(
+                date=now_ist.strftime('%d/%m/%Y'),
+                time=now_ist.strftime('%H:%M:%S'),
+                timeslot=timeslot,
+                technician_name=technician_name,
+                button_name=button['name'],
+                status=button['status']
+            ))
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -161,18 +139,13 @@ def save_operations():
 @login_required
 def download_csv():
     ops = Operation.query.order_by(Operation.created_at.desc()).all()
-    if not ops:
-        return jsonify({'error': 'No data'}), 404
+    if not ops: return jsonify({'error': 'No data'}), 404
 
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['Date', 'Time', 'Timeslot', 'Technician', 'Button', 'Status'])
-
     for op in ops:
-        writer.writerow([
-            op.date, op.time, op.timeslot,
-            op.technician_name, op.button_name, op.status
-        ])
+        writer.writerow([op.date, op.time, op.timeslot, op.technician_name, op.button_name, op.status])
 
     output.seek(0)
     return send_file(
@@ -190,12 +163,5 @@ def delete_logs():
     db.session.commit()
     return jsonify({'success': True})
 
-@app.route('/api/debug-session')
-def debug_session():
-    return jsonify({
-        'cookies': request.cookies,
-        'sessions': list(sessions.keys())
-    })
-
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=False) # Production mode
