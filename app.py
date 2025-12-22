@@ -19,6 +19,14 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'reel-cinemas-fallback-key')
 
+# 2. SECURITY & COOKIE SETTINGS 
+app.config.update(
+    SESSION_COOKIE_SAMESITE="None",
+    SESSION_COOKIE_SECURE=True,    
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_PATH='/',
+)
+
 # Session Configuration (Stores sessions in your DB)
 app.config['SESSION_TYPE'] = 'sqlalchemy'
 app.config['SESSION_COOKIE_SAMESITE'] = "None"
