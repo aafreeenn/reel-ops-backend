@@ -171,5 +171,12 @@ def delete_logs():
     db.session.commit()
     return jsonify({'success': True})
 
+@app.after_request
+def add_cookie_headers(response):
+    # This manually forces the browser to accept the cookie settings
+    # even if the Flask-Session extension struggles with cross-domains
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
+
 if __name__ == '__main__':
     app.run(debug=False) # Production mode
