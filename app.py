@@ -22,7 +22,7 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'reel-cinemas-fallback-key')
 # 2. SECURITY & COOKIE SETTINGS 
 app.config.update(
     SESSION_COOKIE_SAMESITE="None",
-    SESSION_COOKIE_SECURE=True,    
+    SESSION_COOKIE_SECURE=False,    
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_PATH='/',
 )
@@ -42,10 +42,10 @@ CORS(
     supports_credentials=True,
     origins=[
         "http://localhost:3000",
-        "https://reel-technical-ops.netlify.app"
+        "http://localhost:5500",
+        "http://127.0.0.1:5500"
     ]
 )
-
 IST = pytz.timezone('Asia/Kolkata')
 
 # --- Models ---
@@ -171,12 +171,7 @@ def delete_logs():
     db.session.commit()
     return jsonify({'success': True})
 
-@app.after_request
-def add_cookie_headers(response):
-    # This manually forces the browser to accept the cookie settings
-    # even if the Flask-Session extension struggles with cross-domains
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
+
 
 if __name__ == '__main__':
     app.run(debug=False) # Production mode
